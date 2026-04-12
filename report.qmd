@@ -1,0 +1,888 @@
+---
+title: "Who Seeks Cancer Information? Predictors in a Nationally Representative U.S. Sample."
+author: "Faith Okaalo"
+date: today
+bibliography: references.bib
+csl: apa.csl
+format:
+  html:
+    toc: true
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+## Introduction
+
+Cancer remains one of the leading causes of morbidity and mortality in the 
+United States. It is the second leading cause of deaths in the country after 
+heart disease [@siegel2024]. Availability and accessibility of accurate and 
+timely information is necessary for prevention, early detection and treatment 
+of cancer [@rutten2019; @budenz2022]. The cancer survivor population has been
+steadily growing over the past years which highlights the need for reliable
+health information to support treatment decision-making and follow up care. 
+However, the information environment has become more advanced and complex for
+many to navigate. A survey conducted in 2021 reported that more than half of 
+U.S. adults received contradicting and misleading information on alternative
+cancer treatment options on various social media platforms [@loeb2024]. 
+Research evaluating available cancer treatment information on social media 
+platforms has found a substantial amount of information that is available online
+to be incorrect and potentially harmful [@johnson2022]. Most individuals who use
+social media platforms as their primary sources of information perceive that
+most of the information to be misleading or false and a huge proportion
+approximately two-thirds find it challenging to distinguish true and false
+health information [@stimpson2023]. 
+
+Whether exposure to this kind of information encourages or discourages 
+individuals from seeking cancer information or better answers remains a 
+topic to be explored. Disparities in cancer seeking information patterns have
+been documented and persist in the United States [@rutten2019; @budenz2022]. 
+The persistent racial disparities in cancer outcomes in the United States are 
+further exacerbated by unequal access to timely information, prevention and 
+early detection [@siegel2024]. It is therefore vital to understand who seeks
+cancer information and what challenges they face in order to design tailored and
+equitable health communication interventions. 
+
+The main aim of this study is to examine what predicts cancer information 
+seeking. Our research question is: **What demographic and attitudinal factors
+predict whether U.S. adults seek cancer information, and is exposure to 
+misleading or conflicting health information associated with cancer information 
+seeking?**
+
+
+## Methods
+
+### Data Source
+
+This study used data from the Health Information National Trends Survey, 
+Cycle 7 (HINTS 7), which is a nationally representative, cross-sectional survey 
+of U.S. adults aged 18. The survey was conducted by the National Cancer 
+Institute [@hints7]. Data were collected between March and September 2024 
+using both mail and web-based surveys.The final sample consisted of 7,278 
+respondents. HINTS 7 is representative and uses a complex sampling design with
+with oversampling of minority populations to ensure adequate representation
+across the demographic groups. 
+
+### Measures
+
+The outcome variable of interest for this project was cancer information 
+seeking, which was measured by a single item asking whether the respondent had 
+sought information about cancer in the past year (yes/no). We had two key 
+predictors which were information environment variables: exposure to misleading 
+health information on social media (five categories: none, a little, some, a lot, 
+and does not use social media) and frequency of encountering conflicting health 
+recommendations (never, rarely, often, very often). Attitudinal predictors 
+included our analysis were: trust in doctors for cancer information (not at all,
+a little, some, a lot) and cancer fatalism, measured by agreement with the
+statement that cancer prevention is not possible (strongly agree to strongly 
+disagree). Demographic covariates included race/ethnicity, education, household
+income, age group, birth sex, personal cancer history, and health insurance 
+status. Full details on variable coding are available on the 
+[About the Data](data.qmd) page.
+
+### Statistical Analysis
+
+Our analyses accounted for the complex sampling design of HINTS 7. 
+Survey-weighted proportions were calculated to describe the prevalence 
+of cancer information seeking across demographic groups. A survey-weighted 
+logistic regression model was then fit to identify independent predictors of 
+cancer information seeking. The results as reported as adjusted odds ratios with 
+with 95% confidence intervals. All analyses were conducted in R.
+
+## Results
+
+### Prevalence of Cancer Information Seeking
+Overall, approximately half 51% of U.S. adults reported seeking cancer 
+information in the past year. Table 1 shows the weighted prevalence 
+of cancer information seeking across demographic and attitudinal groups. Cancer 
+information seeking increased with education level among adults with less than
+high school education to college graduates. There were also racial disparities 
+with Non-Hispanic Whites having the highest information seeking rates compared
+to Hispanic and Non-Hispanic Black and Non-Hispanic Asian adults. 
+
+```{r}
+#| label: setup-report
+#| include: false
+
+library(tidyverse)
+library(survey)
+library(srvyr)
+library(gtsummary)
+library(gt)
+library(plotly)
+library(here)
+library(DT)
+
+
+load(here("data", "hints7_public.rda"))
+df_raw <- public
+
+recode_hints <- function(x) {
+  x <- as.character(x)
+  ifelse(grepl("Missing|error|Error|Unreadable|Inapplicable", x), NA, x)
+}
+
+df <- df_raw |>
+  mutate(
+    seek_cancer_info = case_when(
+      recode_hints(SeekCancerInfo) == "Yes" ~ 1L,
+      recode_hints(SeekCancerInfo) == "No"  ~ 0L
+    ),
+    misleading_info = factor(
+      recode_hints(MisleadingHealthInfo),
+      levels = c("None", "A little", "Some", "A lot",
+                 "I do not use social media")
+    ),
+    recs_conflict = factor(
+      recode_hints(HealthRecsConflict),
+      levels = c("Never", "Rarely", "Often", "Very Often")
+    ),
+    trust_doctor = factor(
+      recode_hints(CancerTrustDoctor),
+      levels = c("Not at all", "A little", "Some", "A lot")
+    ),
+    fatalism = factor(
+      recode_hints(PreventNotPossible),
+      levels = c("Strongly agree", "Somewhat agree",
+                 "Somewhat disagree", "Strongly disagree")
+    ),
+    race = factor(recode_hints(RaceEthn5)),
+    race = relevel(race, ref = "Non-Hispanic White"),
+    education = factor(
+      recode_hints(EducA),
+      levels = c("Less than High School", "High School Graduate",
+                 "Some College", "College Graduate or More")
+    ),
+    income = case_when(
+      recode_hints(IncomeRanges_IMP) %in%
+        c("$0 to $9,999", "$10,000 to $14,999", "$15,000 to $19,999",
+          "$20,000 to $34,999") ~ "Less than $35,000",
+      recode_hints(IncomeRanges_IMP) %in%
+        c("$35,000 to $49,999", "$50,000 to $74,999") ~ "$35,000 to $74,999",
+      recode_hints(IncomeRanges_IMP) == "$75,000 to $99,999" ~ "$75,000 to $99,999",
+      recode_hints(IncomeRanges_IMP) %in%
+        c("$100,000 to $199,999", "$200,000 or more") ~ "$100,000 or more"
+    ),
+    income = factor(income,
+      levels = c("Less than $35,000", "$35,000 to $74,999",
+                 "$75,000 to $99,999", "$100,000 or more")),
+    age_group = factor(
+      recode_hints(AgeGrpB),
+      levels = c("18-34", "35-49", "50-64", "65-74", "75+")
+    ),
+    sex = case_when(
+      recode_hints(BirthSex) == "Female" ~ "Female",
+      recode_hints(BirthSex) == "Male"   ~ "Male"
+    ),
+    sex = factor(sex, levels = c("Female", "Male")),
+    cancer_history = case_when(
+      recode_hints(EverHadCancer) == "Yes" ~ "Yes",
+      recode_hints(EverHadCancer) == "No"  ~ "No"
+    ),
+    cancer_history = factor(cancer_history, levels = c("No", "Yes")),
+    insurance = case_when(
+      recode_hints(HealthInsurance2) == "Yes" ~ "Yes",
+      recode_hints(HealthInsurance2) == "No"  ~ "No"
+    ),
+    insurance = factor(insurance, levels = c("No", "Yes")),
+    frustration_effort  = recode_hints(CancerLotOfEffort),
+    frustration_quality = recode_hints(CancerConcernedQuality),
+    frustration_hard    = recode_hints(CancerTooHardUnderstand),
+    frustration_upset   = recode_hints(CancerFrustrated)
+  )
+
+svy <- df |>
+  as_survey_rep(
+    weights    = PERSON_FINWT0,
+    repweights = num_range("PERSON_FINWT", 1:50),
+    type       = "JKn",
+    scale      = 0.98,
+    rscales    = rep(1, 50),
+    mse        = TRUE
+  )
+```
+
+```{r}
+#| label: table1
+
+# Convert to survey.design object
+svy_design <- svydesign(
+  ids     = ~1,
+  weights = ~PERSON_FINWT0,
+  data    = df
+)
+
+# Build weighted summary table
+table1_data <- svy_design |>
+  tbl_svysummary(
+    by = seek_cancer_info,
+    include = c(race, education, income, age_group, sex,
+                cancer_history, insurance,
+                misleading_info, recs_conflict,
+                trust_doctor, fatalism),
+    label = list(
+      race            ~ "Race/Ethnicity",
+      education       ~ "Education",
+      income          ~ "Household Income",
+      age_group       ~ "Age Group",
+      sex             ~ "Sex",
+      cancer_history  ~ "Personal Cancer History",
+      insurance       ~ "Health Insurance",
+      misleading_info ~ "Misleading Health Info on Social Media",
+      recs_conflict   ~ "Conflicting Health Recommendations",
+      trust_doctor    ~ "Trust in Doctors for Cancer Info",
+      fatalism        ~ "Cancer Prevention Not Possible"
+    ),
+    statistic = list(all_categorical() ~ "{p}%"),
+    digits    = list(all_categorical() ~ 1),
+    missing   = "no"
+  ) |>
+  add_overall() |>
+  modify_header(
+    label  ~ "**Characteristic**",
+    stat_0 ~ "**Overall**",
+    stat_1 ~ "**Did Not Seek**",
+    stat_2 ~ "**Sought Info**"
+  ) |>
+  bold_labels()
+
+# Convert to data frame
+table1_df <- table1_data |> as_tibble()
+
+# Render as styled interactive table
+datatable(
+  table1_df,
+  caption  = htmltools::tags$caption(
+    style = "caption-side: top; text-align: left; font-size: 14px;
+             font-weight: bold; color: #2c3e50; padding-bottom: 8px;",
+    "Table 1. Weighted prevalence of cancer information seeking by 
+     demographic and attitudinal characteristics, HINTS 7 (2024)"
+  ),
+  rownames = FALSE,
+  filter   = "top",
+  options  = list(
+    pageLength = 20,
+    scrollX    = TRUE,
+    dom        = "ftip",
+    initComplete = JS(
+      "function(settings, json) {",
+      "$(this.api().table().header()).css({",
+      "  'background-color': '#2c7bb6',",
+      "  'color': 'white',",
+      "  'font-size': '13px'",
+      "});",
+      "}"
+    )
+  ),
+  class = "stripe hover compact"
+) |>
+  formatStyle(
+    "**Overall**",
+    backgroundColor = "#eaf4fb",
+    fontWeight = "bold"
+  ) |>
+  formatStyle(
+    "**Sought Info**",
+    color = styleInterval(c(30, 50), c("#c0392b", "#e67e22", "#27ae60")),
+    fontWeight = "bold"
+  ) |>
+  formatStyle(
+    columns = 1,
+    fontWeight = "bold",
+    color = "#2c3e50"
+  )
+```
+
+
+### Figure 1: Weighted prevalence of information seeking by groups.
+
+```{r}
+#| label: plot1
+#| fig-cap: "Figure 1. Weighted prevalence of cancer information seeking by demographic group"
+
+# Calculate weighted proportions by group
+race_data <- svy |>
+  filter(!is.na(seek_cancer_info), !is.na(race)) |>
+  group_by(race, seek_cancer_info) |>
+  summarise(prop = survey_prop(vartype = "ci") * 100) |>
+  filter(seek_cancer_info == 1) |>
+  mutate(group = as.character(race), category = "Race/Ethnicity")
+
+edu_data <- svy |>
+  filter(!is.na(seek_cancer_info), !is.na(education)) |>
+  group_by(education, seek_cancer_info) |>
+  summarise(prop = survey_prop(vartype = "ci") * 100) |>
+  filter(seek_cancer_info == 1) |>
+  mutate(group = as.character(education), category = "Education")
+
+income_data <- svy |>
+  filter(!is.na(seek_cancer_info), !is.na(income)) |>
+  group_by(income, seek_cancer_info) |>
+  summarise(prop = survey_prop(vartype = "ci") * 100) |>
+  filter(seek_cancer_info == 1) |>
+  mutate(group = as.character(income), category = "Income")
+
+age_data <- svy |>
+  filter(!is.na(seek_cancer_info), !is.na(age_group)) |>
+  group_by(age_group, seek_cancer_info) |>
+  summarise(prop = survey_prop(vartype = "ci") * 100) |>
+  filter(seek_cancer_info == 1) |>
+  mutate(group = as.character(age_group), category = "Age Group")
+
+# Combine all groups
+plot_data <- bind_rows(race_data, edu_data, income_data, age_data) |>
+  select(category, group, prop, prop_low, prop_upp)
+
+# Build interactive plotly bar chart
+fig1 <- plot_ly(
+  data = plot_data |> filter(category == "Race/Ethnicity"),
+  x    = ~reorder(group, prop),
+  y    = ~prop,
+  type = "bar",
+  error_y = list(
+    type       = "data",
+    symmetric  = FALSE,
+    array      = ~(prop_upp - prop),
+    arrayminus = ~(prop - prop_low),
+    color      = "#555"
+  ),
+  marker = list(color = "#2c7bb6"),
+  name   = "Race/Ethnicity",
+  hovertemplate = "%{x}<br>%{y:.1f}% (95% CI: %{customdata[0]:.1f}–%{customdata[1]:.1f}%)<extra></extra>",
+  customdata = ~cbind(prop_low, prop_upp)
+)
+
+# Add dropdown buttons to switch between categories
+categories <- c("Race/Ethnicity", "Education", "Income", "Age Group")
+colors <- c("#2c7bb6", "#1a9641", "#d7191c", "#756bb1")
+
+buttons <- lapply(seq_along(categories), function(i) {
+  cat_data <- plot_data |> filter(category == categories[i])
+  list(
+    method = "restyle",
+    args   = list(list(
+      x            = list(reorder(cat_data$group, cat_data$prop)),
+      y            = list(cat_data$prop),
+      "error_y.array"      = list(cat_data$prop_upp - cat_data$prop),
+      "error_y.arrayminus" = list(cat_data$prop - cat_data$prop_low),
+      "marker.color"       = colors[i],
+      customdata   = list(cbind(cat_data$prop_low, cat_data$prop_upp))
+    )),
+    label = categories[i]
+  )
+})
+
+fig1 |>
+  layout(
+    title = list(
+      text = "Cancer Information Seeking by Demographic Group",
+      font = list(size = 15)
+    ),
+    xaxis = list(title = "", tickangle = -30),
+    yaxis = list(title = "% Sought Cancer Information",
+                 range = c(0, 80)),
+    updatemenus = list(list(
+      type       = "buttons",
+      direction  = "right",
+      x          = 0,
+      y          = 1.15,
+      showactive = TRUE,
+      buttons    = buttons
+    )),
+    margin  = list(b = 100, t = 80),
+    plot_bgcolor  = "white",
+    paper_bgcolor = "white"
+  )
+```
+
+
+
+### Predictors of Cancer Information Seeking
+Table 2 presents adjusted odds ratios from the survey-weighted logistic 
+regression model. Figure 2 displays these results visually as a forest 
+plot, with blue points indicating statistically significant predictors 
+(p < 0.05).
+
+The strongest predictor of cancer information seeking was a personal 
+history of cancer. Adults who had a cancer diagnosis had over four times 
+the odds of seeking cancer information compared to those without 
+(OR = 4.02, 95% CI: 2.96–5.45, p < 0.001). Frequently encountering 
+conflicting health recommendations was also strongly associated with 
+seeking cancer information.Compared to adults who never encountered conflicting 
+recommendations, those who encountered them rarely had 3.78 times the 
+odds of seeking information (OR = 3.78, 95% CI: 2.09–6.84, p < 0.001), 
+those who encountered them often had 4.82 times the odds (OR = 4.82, 95% CI: 
+2.67–8.68, p < 0.001), and those who encountered them very often had 
+5.59 times the odds (OR = 5.59, 95% CI: 2.90–10.80, p < 0.001).
+
+Higher education was associated with greater seeking. College graduates 
+had approximately 2.79 times the odds of seeking cancer information 
+compared to those with less than a high school education (OR = 2.79, 
+95% CI: 1.48–5.25, p = 0.002). Higher income was also associated with 
+information seeking. Adults earning $75,000–$99,999 (OR = 1.48, 95% 
+CI: 1.05–2.09, p = 0.027) and $100,000 or more (OR = 1.44, 95% CI: 1.07–1.94,
+p = 0.017) had significantly higher odds than those earning less than $35,000. 
+Adults aged 35–49 had higher odds of seeking cancer information than those aged
+18–34 (OR = 1.39, 95% CI: 1.03–1.88, p = 0.032). Compared to females, males had 
+significantly lower odds of seeking information (OR = 0.76, 95% CI: 0.62–0.93, 
+p = 0.007). Non-Hispanic Black adults had significantly lower odds of 
+seeking compared to Non-Hispanic White adults (OR = 0.72, 95% CI: 
+0.54–0.95, p = 0.021), though differences for other racial and ethnic 
+groups were not statistically significant after adjustment.
+
+Notably, exposure to misleading health information on social media was 
+positively associated with seeking cancer information. Those exposed to "a lot" 
+of misleading information had higher odds of seeking than those exposed to 
+none. However this association was not statistically significant. Trust in 
+doctors for cancer information was also not significantly associated with 
+seeking after adjusting for other factors.
+
+
+```{r}
+#| label: regression-model
+#| include: false
+
+# Fit survey-weighted logistic regression
+model <- svyglm(
+  seek_cancer_info ~ race + education + income + age_group + sex +
+    cancer_history + insurance + misleading_info + recs_conflict +
+    trust_doctor + fatalism,
+  design = svy_design,
+  family = quasibinomial()
+)
+
+summary(model)
+```
+
+```{r}
+#| label: regression-table
+#| tbl-cap: "Table 2. Survey-weighted logistic regression predicting cancer information seeking, HINTS 7 (2024)"
+
+library(gtsummary)
+library(gt)
+
+tbl_regression(
+  model,
+  exponentiate = TRUE,
+  label = list(
+    race            ~ "Race/Ethnicity",
+    education       ~ "Education",
+    income          ~ "Household Income",
+    age_group       ~ "Age Group",
+    sex             ~ "Sex",
+    cancer_history  ~ "Personal Cancer History",
+    insurance       ~ "Health Insurance",
+    misleading_info ~ "Misleading Health Info on Social Media",
+    recs_conflict   ~ "Conflicting Health Recommendations",
+    trust_doctor    ~ "Trust in Doctors for Cancer Info",
+    fatalism        ~ "Cancer Prevention Not Possible"
+  )
+) |>
+  bold_p(t = 0.05) |>
+  bold_labels() |>
+  modify_header(
+    label    ~ "**Characteristic**",
+    estimate ~ "**OR**",
+    ci       ~ "**95% CI**",
+    p.value  ~ "**p-value**"
+  ) |>
+  modify_caption("**Table 2.** Adjusted odds ratios from survey-weighted logistic regression predicting cancer information seeking, HINTS 7 (2024)") |>
+  as_gt() |>
+  tab_style(
+    style     = cell_fill(color = "#f0f0f0"),
+    locations = cells_body(rows = p.value < 0.05)
+  ) |>
+  tab_style(
+    style     = cell_text(weight = "bold"),
+    locations = cells_body(rows = p.value < 0.05)
+  ) |>
+  tab_style(
+    style     = cell_text(color = "white", weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_options(
+    table.font.size                = 13,
+    table.border.top.color         = "#2c7bb6",
+    table.border.top.width         = px(3),
+    column_labels.background.color = "#2c7bb6"
+  )
+```
+
+
+
+### A forest-plot with adjusted odds ratios for predictors of information seeking
+
+```{r}
+#| label: forest-plot
+#| fig-cap: "Figure 2. Adjusted odds ratios for predictors of cancer information seeking, HINTS 7 (2024)"
+
+library(broom)
+
+# Extract model results
+forest_data <- tidy(model, exponentiate = TRUE, conf.int = TRUE) |>
+  filter(term != "(Intercept)") |>
+  mutate(
+    term = recode(term,
+      "raceHispanic"                               = "Hispanic (ref: NH White)",
+      "raceNon-Hispanic Asian"                     = "NH Asian (ref: NH White)",
+      "raceNon-Hispanic Black or African American" = "NH Black (ref: NH White)",
+      "raceNon-Hispanic Other"                     = "NH Other (ref: NH White)",
+      "educationHigh School Graduate"              = "High School (ref: <HS)",
+      "educationSome College"                      = "Some College (ref: <HS)",
+      "educationCollege Graduate or More"          = "College Grad+ (ref: <HS)",
+      "income$35,000 to $74,999"                   = "$35-75k (ref: <$35k)",
+      "income$75,000 to $99,999"                   = "$75-100k (ref: <$35k)",
+      "income$100,000 or more"                     = "$100k+ (ref: <$35k)",
+      "age_group35-49"                             = "Age 35-49 (ref: 18-34)",
+      "age_group50-64"                             = "Age 50-64 (ref: 18-34)",
+      "age_group65-74"                             = "Age 65-74 (ref: 18-34)",
+      "age_group75+"                               = "Age 75+ (ref: 18-34)",
+      "sexMale"                                    = "Male (ref: Female)",
+      "cancer_historyYes"                          = "Cancer History: Yes (ref: No)",
+      "insuranceYes"                               = "Insured (ref: No)",
+      "misleading_infoA little"                    = "Misleading: A little (ref: None)",
+      "misleading_infoSome"                        = "Misleading: Some (ref: None)",
+      "misleading_infoA lot"                       = "Misleading: A lot (ref: None)",
+      "misleading_infoI do not use social media"   = "No social media (ref: None)",
+      "recs_conflictRarely"                        = "Conflict: Rarely (ref: Never)",
+      "recs_conflictOften"                         = "Conflict: Often (ref: Never)",
+      "recs_conflictVery Often"                    = "Conflict: Very Often (ref: Never)",
+      "trust_doctorA little"                       = "Trust Dr: A little (ref: Not at all)",
+      "trust_doctorSome"                           = "Trust Dr: Some (ref: Not at all)",
+      "trust_doctorA lot"                          = "Trust Dr: A lot (ref: Not at all)",
+      "fatalismSomewhat agree"                     = "Fatalism: Somewhat agree (ref: Strongly agree)",
+      "fatalismSomewhat disagree"                  = "Fatalism: Somewhat disagree (ref: Strongly agree)",
+      "fatalismStrongly disagree"                  = "Fatalism: Strongly disagree (ref: Strongly agree)"
+    ),
+    significant = p.value < 0.05,
+    color       = ifelse(significant, "#2c7bb6", "#aaaaaa"),
+    group       = ifelse(significant, "Significant (p < 0.05)", "Not Significant"),
+    hover_text  = paste0(
+      "<b>", term, "</b><br>",
+      "OR: ", round(estimate, 2), "<br>",
+      "95% CI: ", round(conf.low, 2), " – ", round(conf.high, 2), "<br>",
+      "p-value: ", round(p.value, 3),
+      ifelse(significant, " *", "")
+    )
+  )
+
+# Split into significant and non-significant for legend
+sig_data    <- forest_data |> filter(significant == TRUE)
+nonsig_data <- forest_data |> filter(significant == FALSE)
+
+# Build forest plot with two traces for legend
+plot_ly() |>
+  # Non-significant trace
+  add_trace(
+    data          = nonsig_data,
+    x             = ~estimate,
+    y             = ~reorder(term, estimate),
+    type          = "scatter",
+    mode          = "markers",
+    name          = "Not significant",
+    marker        = list(color = "#aaaaaa", size = 9),
+    error_x       = list(
+      type       = "data",
+      symmetric  = FALSE,
+      array      = ~(conf.high - estimate),
+      arrayminus = ~(estimate - conf.low),
+      color      = "#aaaaaa",
+      thickness  = 1.5,
+      width      = 4
+    ),
+    text      = ~hover_text,
+    hoverinfo = "text"
+  ) |>
+  # Significant trace
+  add_trace(
+    data          = sig_data,
+    x             = ~estimate,
+    y             = ~reorder(term, estimate),
+    type          = "scatter",
+    mode          = "markers",
+    name          = "Significant (p < 0.05)",
+    marker        = list(color = "#2c7bb6", size = 9),
+    error_x       = list(
+      type       = "data",
+      symmetric  = FALSE,
+      array      = ~(conf.high - estimate),
+      arrayminus = ~(estimate - conf.low),
+      color      = "#2c7bb6",
+      thickness  = 1.5,
+      width      = 4
+    ),
+    text      = ~hover_text,
+    hoverinfo = "text"
+  ) |>
+  layout(
+    title = list(
+      text = "Adjusted Odds Ratios — Cancer Information Seeking",
+      font = list(size = 14)
+    ),
+    xaxis = list(
+      title     = "Odds Ratio (log scale)",
+      type      = "log",
+      zeroline  = FALSE,
+      showgrid  = TRUE,
+      gridcolor = "#eeeeee"
+    ),
+    yaxis = list(
+      title    = "",
+      tickfont = list(size = 11)
+    ),
+    shapes = list(list(
+      type = "line",
+      x0   = 1, x1 = 1,
+      y0   = 0, y1 = 1,
+      yref = "paper",
+      line = list(color = "black", dash = "dash", width = 1)
+    )),
+    legend = list(
+      orientation = "h",
+      x           = 0,
+      y           = -0.08,
+      font        = list(size = 12)
+    ),
+    height        = 750,
+    margin        = list(l = 280, r = 50, t = 60, b = 80),
+    plot_bgcolor  = "white",
+    paper_bgcolor = "white"
+  )
+```
+
+
+
+### Among Seekers: Was the Information Easy to Find?
+As shown in figure 3, 59.1% of information seekers expressed concern about the
+quality of the information they found, making it the most commonly reported 
+difficulty. Additionally, 41.8% found the information too hard to understand, 
+41.0% reported that it took a lot of effort to find cancer information, and 
+38.1% felt frustrated during their search. These findings suggest that even 
+among adults who actively seek cancer information, the experience is often 
+difficult and the quality of available information is a major concern.
+
+```{r}
+#| label: frustration-plot
+#| fig-cap: "Figure 3. Experiences among adults who sought cancer information, HINTS 7 (2024)"
+
+# Restrict to seekers only
+seekers_svy <- svy |> filter(seek_cancer_info == 1)
+
+# Calculate weighted proportions for each frustration item
+effort_prop <- seekers_svy |>
+  filter(!is.na(frustration_effort)) |>
+  group_by(frustration_effort) |>
+  summarise(prop = survey_prop(vartype = "ci") * 100) |>
+  filter(frustration_effort %in% c("Strongly agree", "Somewhat agree")) |>
+  summarise(prop = sum(prop)) |>
+  mutate(item = "It took a lot of effort\nto find cancer information")
+
+quality_prop <- seekers_svy |>
+  filter(!is.na(frustration_quality)) |>
+  group_by(frustration_quality) |>
+  summarise(prop = survey_prop(vartype = "ci") * 100) |>
+  filter(frustration_quality %in% c("Strongly agree", "Somewhat agree")) |>
+  summarise(prop = sum(prop)) |>
+  mutate(item = "I was concerned about\nthe quality of information")
+
+hard_prop <- seekers_svy |>
+  filter(!is.na(frustration_hard)) |>
+  group_by(frustration_hard) |>
+  summarise(prop = survey_prop(vartype = "ci") * 100) |>
+  filter(frustration_hard %in% c("Strongly agree", "Somewhat agree")) |>
+  summarise(prop = sum(prop)) |>
+  mutate(item = "The information was\ntoo hard to understand")
+
+upset_prop <- seekers_svy |>
+  filter(!is.na(frustration_upset)) |>
+  group_by(frustration_upset) |>
+  summarise(prop = survey_prop(vartype = "ci") * 100) |>
+  filter(frustration_upset %in% c("Strongly agree", "Somewhat agree")) |>
+  summarise(prop = sum(prop)) |>
+  mutate(item = "I felt frustrated during\nmy search for information")
+
+# Combine
+frustration_data <- bind_rows(
+  effort_prop, quality_prop, hard_prop, upset_prop
+) |>
+  mutate(prop = round(prop, 1))
+
+# Build interactive bar chart
+plot_ly(
+  data = frustration_data,
+  x    = ~prop,
+  y    = ~reorder(item, prop),
+  type = "bar",
+  orientation = "h",
+  marker = list(
+    color = c("#d7191c", "#fdae61", "#2c7bb6", "#1a9641"),
+    line  = list(color = "white", width = 0.5)
+  ),
+  text          = ~paste0(prop, "%"),
+  textposition  = "outside",
+  hovertemplate = "%{y}<br>%{x:.1f}% agreed<extra></extra>"
+) |>
+  layout(
+    title = list(
+      text = "Experiences Among Cancer Information Seekers",
+      font = list(size = 14)
+    ),
+    xaxis = list(
+      title     = "% of Seekers Who Agreed",
+      range     = c(0, 80),
+      showgrid  = TRUE,
+      gridcolor = "#eeeeee"
+    ),
+    yaxis = list(
+      title    = "",
+      tickfont = list(size = 12)
+    ),
+    margin        = list(l = 220, r = 80, t = 60, b = 50),
+    plot_bgcolor  = "white",
+    paper_bgcolor = "white",
+    showlegend    = FALSE
+  )
+```
+
+
+
+### The Misinformation Paradox
+
+One of the interesting finding from this analysis was the relationship between 
+exposure to misleading health information on social media and cancer 
+information seeking. Although one might expect misleading information to 
+discourage engagement, higher exposure to misinformation was instead associated 
+with greater cancer information seeking. Figure 4 illustrates this pattern.
+There was a clear increase in cancer information seeking with greater 
+exposure to misleading health information, rising from 30.1% among those with 
+no exposure to 58.4% among those with high exposure. Adults who did not use 
+social media had an intermediate seeking rate of 37.7%. While this association 
+was not statistically significant after adjusting for other factors in the 
+regression model.
+
+```{r}
+#| label: misinformation-plot
+#| fig-cap: "Figure 4. Cancer information seeking by level of misleading health information exposure, HINTS 7 (2024)"
+
+# Data from verified weighted estimates
+misinfo_data <- tibble(
+  level = factor(
+    c("None", "A little", "Some", "A lot", "No social media"),
+    levels = c("None", "A little", "Some", "A lot", "No social media")
+  ),
+  prop     = c(30.1, 43.2, 53.6, 58.4, 37.7),
+  prop_low = c(16.3, 36.9, 50.1, 54.8, 33.7),
+  prop_upp = c(48.8, 49.7, 57.0, 61.9, 41.9)
+) |>
+  mutate(
+    hover_text = paste0(
+      "<b>", level, "</b><br>",
+      "Sought cancer info: ", prop, "%<br>",
+      "95% CI: ", prop_low, "% – ", prop_upp, "%"
+    )
+  )
+
+plot_ly(
+  data = misinfo_data,
+  x    = ~level,
+  y    = ~prop,
+  type = "bar",
+  error_y = list(
+    type       = "data",
+    symmetric  = FALSE,
+    array      = ~(prop_upp - prop),
+    arrayminus = ~(prop - prop_low),
+    color      = "#555",
+    thickness  = 1.5,
+    width      = 4
+  ),
+  marker = list(
+    color = c("#d4e6f1", "#7fb3d3", "#2980b9", "#1a5276", "#aaaaaa"),
+    line  = list(color = "white", width = 0.5)
+  ),
+  text          = ~paste0(prop, "%"),
+  textposition  = "outside",
+  hovertext     = ~hover_text,
+  hoverinfo     = "text"
+) |>
+  layout(
+    title = list(
+      text = "Cancer Information Seeking by Misleading Health Info Exposure",
+      font = list(size = 14)
+    ),
+    xaxis = list(
+      title    = "Level of Misleading Health Information Seen on Social Media",
+      tickfont = list(size = 12)
+    ),
+    yaxis = list(
+      title     = "% Who Sought Cancer Information",
+      range     = c(0, 75),
+      showgrid  = TRUE,
+      gridcolor = "#eeeeee"
+    ),
+    margin        = list(l = 60, r = 60, t = 60, b = 80),
+    plot_bgcolor  = "white",
+    paper_bgcolor = "white",
+    showlegend    = FALSE,
+    annotations   = list(list(
+      x         = 3,
+      y         = 65,
+      text      = "Darker blue = more misinformation exposure",
+      showarrow = FALSE,
+      font      = list(size = 11, color = "#555")
+    ))
+  )
+```
+
+
+
+## Conclusion and Summary
+This study used data from the 2024 Health Information National Trends 
+Survey (HINTS 7) to examine what predicts cancer information seeking 
+among U.S. adults. Overall, approximately half of U.S. adults (51.1%) 
+reported seeking cancer information in the past year, though this varied 
+substantially across demographic and attitudinal groups.
+
+The strongest predictor of cancer information seeking was a personal 
+history of cancer, with survivors having over four times the odds of 
+seeking information. This underscores the critical role of health 
+information access in cancer survivorship and ongoing care. Encountering 
+conflicting health recommendations was also strongly associated with 
+information seeking, suggesting that people actively search for information
+when they are uncertain.
+
+Education and income disparities in cancer information seeking were 
+evident even after adjusting for other factors in the model. Adults with less 
+education and lower incomes were significantly less likely to seek cancer 
+information, which might be reflective of structural barriers in health 
+information access. One of the most intriguing findings was a “misinformation 
+paradox,” where adults exposed to higher levels of misleading health 
+information on social media were more likely to seek cancer information. 
+This pattern suggests that exposure to misinformation may act as a motivator
+rather than a barrier, potentially prompting individuals to verify the 
+information they encounter.
+
+### Limitations
+This study has several limitations.
+
+1. HINTS 7 is a cross-sectional survey which makes it difficult to 
+establish causal relationships.
+
+2. All measures were self-reported and subject to recall and social 
+desirability bias.
+
+3. The race/ethnicity variable had the highest amount of missing values 
+(11.5%), which may affect the precision of estimates for racial subgroups.
+
+4. The survey captures whether cancer information was sought but does not 
+include details on the quality or source of information found.
+
+### Future Directions
+
+Future research could explore the misinformation paradox to understand whether 
+early misinformation exposure leads to sustained information seeking over time.
+There is a need for interventions targeting low-education and low-income adults
+to help reduce disparities in cancer information access.
+
+## References

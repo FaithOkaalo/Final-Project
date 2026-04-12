@@ -1,0 +1,17 @@
+/.quarto/
+**/*.quarto_ipynb
+.Rproj.user
+
+# R data files - never push the dataset to GitHub
+data/
+*.rda
+*.rds
+*.RData
+
+# R misc
+.Rhistory
+.RData
+
+# OS files
+.DS_Store
+Thumbs.db

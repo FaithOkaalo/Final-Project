@@ -1,0 +1,104 @@
+---
+title: ""
+format:
+  html:
+    toc: false
+---
+
+<div style="text-align: center; padding: 40px 20px 20px;">
+
+<div style="border: 1px solid #ddd; border-radius: 8px; 
+padding: 20px 40px; display: inline-block; margin-bottom: 25px;
+background-color: white;">
+<p style="margin: 4px 0; font-size: 1.1em;">
+<strong>Faith Okaalo</strong>
+</p>
+<p style="margin: 4px 0; color: #555; font-size: 1.05em;">
+University of Michigan
+</p>
+<p style="margin: 4px 0; color: #555; font-size: 1.05em;">
+BIOSTAT 620 --- Introduction to Health Data Science
+</p>
+<p style="margin: 4px 0; color: #555; font-size: 1.05em;">
+April 2026
+</p>
+</div>
+
+<h1 style="font-size: 2.2em; color: #1a5276; 
+text-decoration: underline; margin-bottom: 2px;">
+Who Seeks Cancer Information?
+</h1>
+
+<h4 style="font-weight: normal; color: #555; 
+margin-top: 0; margin-bottom: 25px;">
+Demographic and Attitudinal Predictors Among U.S. Adults
+</h4>
+
+<img src="https://images.unsplash.com/photo-1576091160550-2173dba999ef?w=900&q=80"
+     alt="Person searching for health information"
+     style="width: 60%; border-radius: 10px; 
+            box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+            margin-bottom: 25px;">
+
+<p style="color: #2c3e50; line-height: 1.7; font-size: 1.05em; 
+max-width: 700px; margin: 0 auto 20px;">
+Using data from the Health Information National Trends Survey (HINTS 7),
+a nationally representative survey of 7,278 U.S. adults conducted by the
+National Cancer Institute in 2024, this project examines what predicts 
+cancer information seeking and whether exposure to misleading health 
+information plays a role.
+</p>
+
+<div style="margin-top: 20px; margin-bottom: 30px;">
+<a href="report.qmd" style="background-color: #1a5276; color: white; 
+padding: 10px 20px; border-radius: 6px; text-decoration: none; 
+font-weight: 500; margin-right: 10px;">
+View Report
+</a>
+<a href="data.qmd" style="background-color: white; color: #1a5276; 
+padding: 10px 20px; border-radius: 6px; text-decoration: none; 
+font-weight: 500; border: 2px solid #1a5276;">
+About the Data
+</a>
+</div>
+
+</div>
+
+---
+
+## About This Project
+
+This website presents the final project for BIOSTAT 620. The analysis
+uses data from the Health Information National Trends Survey Cycle 7
+(HINTS 7), a nationally representative survey of 7,278 U.S. adults
+conducted by the National Cancer Institute in 2024.
+
+The primary research question guiding this analysis was to examine what
+demographic and attitudinal factors predict cancer information seeking
+among U.S. adults, and whether exposure to misleading or conflicting
+health information is associated with seeking behavior.
+
+## Key Findings
+
+- Overall, 51.1% of U.S. adults sought cancer information in the past year
+- A personal history of cancer was the strongest predictor (OR = 4.02, p < 0.001)
+- Adults who frequently encountered conflicting health recommendations
+were over five times more likely to seek information
+- A striking misinformation paradox was observed --- those exposed to
+more misleading health information were more likely to seek cancer
+information, not less
+- Education and income disparities in cancer information seeking
+persisted even after adjustment
+
+## Site Navigation
+
+Use the navbar above to explore:
+
+- [Report](report.qmd) --- Full analysis including introduction, methods, results, and conclusion
+- [About the Data](data.qmd) --- Data source, variable descriptions, cleaning steps, and exploratory analysis
+
+---
+
+*Data source: National Cancer Institute. Health Information National
+Trends Survey 7 (HINTS 7), 2024. Available at 
+[hints.cancer.gov](https://hints.cancer.gov)*

@@ -1,0 +1,366 @@
+---
+title: "About the Data"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    code-fold: true
+execute:
+  echo: true
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+#| include: false
+
+library(tidyverse)
+library(survey)
+library(srvyr)
+library(here)
+library(gt)
+```
+
+## Data Source
+
+The data used in this analysis was obtained from the Health Information National Trends Survey, Cycle 7 (HINTS 7), which was administered by the National Cancer
+Institute (NCI). HINTS is a nationally representative, cross-sectional survey of 
+U.S. adults aged 18 and older. The survey was conducted between March and 
+September 2024 using a mail and web-based design.This is a publicly available 
+dataset that can be accessed at [hints.cancer.gov](https://hints.cancer.gov). 
+
+
+## Loading the data
+```{r}
+#| label: load-data
+#| results: hide
+
+load(here("data", "hints7_public.rda"))
+df_raw <- public
+
+nrow(df_raw)
+ncol(df_raw)
+```
+## Variables Used 
+
+The following variables were selected for this analysis.
+```{r}
+#| label: variable-table
+
+tibble(
+  Variable = c(
+    "SeekCancerInfo",
+    "MisleadingHealthInfo",
+    "HealthRecsConflict",
+    "CancerTrustDoctor",
+    "PreventNotPossible",
+    "RaceEthn5",
+    "EducA",
+    "IncomeRanges_IMP",
+    "AgeGrpB",
+    "BirthSex",
+    "EverHadCancer",
+    "HealthInsurance2"
+  ),
+  Description = c(
+    "Whether the respondent sought cancer information in the past year",
+    "How much misleading health information seen on social media",
+    "How often health recommendations seem to conflict with each other",
+    "Level of trust in doctors as a source of cancer information",
+    "Belief that cancer prevention is not possible (fatalism)",
+    "Race and ethnicity (5 categories)",
+    "Highest level of education completed",
+    "Annual household income (imputed for missing values)",
+    "Age group",
+    "Birth sex",
+    "Whether the respondent has ever been diagnosed with cancer",
+    "Whether the respondent has health insurance"
+  ),
+  Role = c(
+    "Outcome",
+    "Key predictor",
+    "Key predictor",
+    "Key predictor",
+    "Key predictor",
+    "Demographic",
+    "Demographic",
+    "Demographic",
+    "Demographic",
+    "Demographic",
+    "Covariate",
+    "Covariate"
+  ),
+  Type = c(
+    "Binary (Yes/No)",
+    "Ordinal — 4 levels + no social media",
+    "Ordinal — Never / Rarely / Often / Very Often",
+    "Ordinal — Not at all / A little / Some / A lot",
+    "Ordinal — Strongly agree to Strongly disagree",
+    "Categorical",
+    "Ordinal — 4 levels",
+    "Ordinal — collapsed to 4 levels",
+    "Ordinal — 5 groups",
+    "Binary (Female/Male)",
+    "Binary (Yes/No)",
+    "Binary (Yes/No)"
+  )
+) |>
+  gt() |>
+  tab_header(title = "Variables used in the analysis") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#E6F1FB"),
+    locations = cells_body(rows = Role == "Outcome")
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#E1F5EE"),
+    locations = cells_body(rows = Role == "Key predictor")
+  ) |>
+  cols_width(
+    Description ~ px(280),
+    Variable ~ px(160),
+    Role ~ px(110),
+    Type ~ px(200)
+  )
+```
+
+
+## Data Cleaning
+
+
+### Outcome variable — Cancer information seeking
+
+The outcome variable `SeekCancerInfo` was originally coded as a character 
+variable with values "Yes" and "No". This was recoded into a binary numeric 
+variable (`seek_cancer_info`) where Yes = 1 and No = 0 for logistic regression.
+
+
+### Key predictor variables
+
+#### **Information Environment Variables**
+
+Two variables capturing the information environment were converted into 
+ordered factors:
+
+- `MisleadingHealthInfo` : how much misleading health information the 
+respondent encountered on social media was recoded into `misleading_info` 
+with five ordered levels: None, A little, Some, A lot, and I do not use 
+social media. The "no social media" category was kept as a separate level 
+rather than treated as missing, because it represents a meaningfully 
+different group of adults who are not exposed to social media health 
+content at all.
+
+- `HealthRecsConflict`: how often the respondent encounters conflicting 
+health recommendations was recoded into `recs_conflict` with four ordered 
+levels: Never, Rarely, Often, and Very Often.
+
+#### **Attitudinal Variables**
+
+Two attitudinal variables were converted into ordered factors:
+
+- `CancerTrustDoctor`: trust in doctors for cancer information was 
+recoded into `trust_doctor` with four levels ordered from least to most 
+trust: Not at all, A little, Some, A lot.
+
+- `PreventNotPossible`: agreement with the statement that cancer 
+prevention is not possible was recoded into `fatalism` with four levels 
+ordered from most to least fatalistic: Strongly agree, Somewhat agree, Somewhat
+disagree, Strongly disagree.
+
+
+### Demographic Variables
+
+Several demographic variables required recoding:
+
+- **Race/ethnicity** (`RaceEthn5`) was converted to a factor and releveled 
+so that Non-Hispanic White is the reference category in the regression 
+model. 
+
+- **Education** (`EducA`) was converted to an ordered factor with four 
+levels: Less than High School, High School Graduate, Some College, and 
+College Graduate or More. Less than High School serves as the reference 
+category in the regression model.
+
+- **Income** required special handling. The original imputed income variable 
+(`IncomeRanges_IMP`) had nine detailed income categories. To improve 
+interpretability, these were collapsed into four broader categories: 
+Less than \$35,000, \$35,000 to \$74,999, \$75,000 to \$99,999, and \$100,000 
+or more. The imputed version of the income variable was used rather than the 
+original because it has only 0.2% missing data compared to 12.4% for the 
+unimputed version. The NCI used a weighted sequential hot deck imputation 
+method to fill in missing income values.
+
+- **Age group** (`AgeGrpB`) was converted to an ordered factor with five 
+levels: 18–34, 35–49, 50–64, 65–74, and 75+. The 18–34 age group serves 
+as the reference category.
+
+- **Sex** (`BirthSex`) was recoded to retain only Female and Male responses. 
+The small number of respondents (n = 44) who responded "Don't know" were 
+set to missing because this group was too small for reliable estimation. 
+Female is the reference category in the regression model.
+
+- **Cancer history** (`EverHadCancer`) and **health insurance** 
+(`HealthInsurance2`) were each recoded as binary factors (No/Yes), with 
+No as the reference category in both cases.
+
+
+### Frustration Variables
+
+Four variables measuring the experience of seeking cancer information 
+were recoded using the `recode_hints()` helper function to set invalid 
+responses to missing. These variables: `frustration_effort`, 
+`frustration_quality`, `frustration_hard`, and `frustration_upset` — 
+were only asked of respondents who reported seeking cancer information 
+(approximately 50% of the sample), so they are used only in the 
+follow-up descriptive analysis restricted to information seekers.
+
+```{r}
+#| label: clean-and-design
+
+# Helper function
+recode_hints <- function(x) {
+  x <- as.character(x)
+  ifelse(grepl("Missing|error|Error|Unreadable|Inapplicable", x), NA, x)
+}
+
+# Clean data
+df <- df_raw |>
+  mutate(
+    seek_cancer_info = case_when(
+      recode_hints(SeekCancerInfo) == "Yes" ~ 1L,
+      recode_hints(SeekCancerInfo) == "No"  ~ 0L
+    ),
+    misleading_info = factor(
+      recode_hints(MisleadingHealthInfo),
+      levels = c("None", "A little", "Some", "A lot",
+                 "I do not use social media")
+    ),
+    recs_conflict = factor(
+      recode_hints(HealthRecsConflict),
+      levels = c("Never", "Rarely", "Often", "Very Often")
+    ),
+    trust_doctor = factor(
+      recode_hints(CancerTrustDoctor),
+      levels = c("Not at all", "A little", "Some", "A lot")
+    ),
+    fatalism = factor(
+      recode_hints(PreventNotPossible),
+      levels = c("Strongly agree", "Somewhat agree",
+                 "Somewhat disagree", "Strongly disagree")
+    ),
+    race = factor(recode_hints(RaceEthn5)),
+    race = relevel(race, ref = "Non-Hispanic White"),
+    education = factor(
+      recode_hints(EducA),
+      levels = c("Less than High School", "High School Graduate",
+                 "Some College", "College Graduate or More")
+    ),
+    income = case_when(
+      recode_hints(IncomeRanges_IMP) %in%
+        c("$0 to $9,999", "$10,000 to $14,999", "$15,000 to $19,999",
+          "$20,000 to $34,999") ~ "Less than $35,000",
+      recode_hints(IncomeRanges_IMP) %in%
+        c("$35,000 to $49,999", "$50,000 to $74,999") ~ "$35,000 to $74,999",
+      recode_hints(IncomeRanges_IMP) == "$75,000 to $99,999" ~ "$75,000 to $99,999",
+      recode_hints(IncomeRanges_IMP) %in%
+        c("$100,000 to $199,999", "$200,000 or more") ~ "$100,000 or more"
+    ),
+    income = factor(income,
+      levels = c("Less than $35,000", "$35,000 to $74,999",
+                 "$75,000 to $99,999", "$100,000 or more")),
+    age_group = factor(
+      recode_hints(AgeGrpB),
+      levels = c("18-34", "35-49", "50-64", "65-74", "75+")
+    ),
+    sex = case_when(
+      recode_hints(BirthSex) == "Female" ~ "Female",
+      recode_hints(BirthSex) == "Male"   ~ "Male"
+    ),
+    sex = factor(sex, levels = c("Female", "Male")),
+    cancer_history = case_when(
+      recode_hints(EverHadCancer) == "Yes" ~ "Yes",
+      recode_hints(EverHadCancer) == "No"  ~ "No"
+    ),
+    cancer_history = factor(cancer_history, levels = c("No", "Yes")),
+    insurance = case_when(
+      recode_hints(HealthInsurance2) == "Yes" ~ "Yes",
+      recode_hints(HealthInsurance2) == "No"  ~ "No"
+    ),
+    insurance = factor(insurance, levels = c("No", "Yes")),
+    frustration_effort  = recode_hints(CancerLotOfEffort),
+    frustration_quality = recode_hints(CancerConcernedQuality),
+    frustration_hard    = recode_hints(CancerTooHardUnderstand),
+    frustration_upset   = recode_hints(CancerFrustrated)
+  )
+
+# Survey design
+svy <- df |>
+  as_survey_rep(
+    weights    = PERSON_FINWT0,
+    repweights = num_range("PERSON_FINWT", 1:50),
+    type       = "JKn",
+    scale      = 0.98,
+    rscales    = rep(1, 50),
+    mse        = TRUE
+  )
+```
+
+
+### Handling Missing Values
+The negative values in the HINTS dataset represent different types of missing 
+data such as "Not Ascertained", "Multiple responses selected in error", " Not 
+Applicable", "Skipped due to survey logic". All the negative  values were
+recorded to `NA` before the analysis. The HINTS 7 survey uses a complex sampling
+design, so to ensure that the estimates of our findings are representative of 
+U.S adults, sampling weights were applied using the final sample weight 
+(PERSON_FINWT0). Standard errors were calculated using 50 jackknife replicate 
+weights (PERSON_FINWT1–PERSON_FINWT50), with a degrees of freedom of 49.
+
+#### Missingness summary
+Overall, the amount of missing values for our key variables was low. The outcome
+variable (`seek_cancer_info`) had less than 1% missing data. The race/ethnicity 
+variable had the highest proportion of missing values at 11.5% (n = 840), 
+which may affect the estimates for racial subgroups.All the other variables had 
+less than 10% missing values. The missing values were excluded from analyses on 
+a variable-by-variable basis.
+
+```{r}
+#| label: missingness
+
+tibble(
+  Variable = c("seek_cancer_info", "misleading_info", "recs_conflict",
+               "trust_doctor", "fatalism", "race", "education",
+               "income", "age_group", "sex", "cancer_history", "insurance"),
+  `N Missing` = c(
+    sum(is.na(df$seek_cancer_info)),
+    sum(is.na(df$misleading_info)),
+    sum(is.na(df$recs_conflict)),
+    sum(is.na(df$trust_doctor)),
+    sum(is.na(df$fatalism)),
+    sum(is.na(df$race)),
+    sum(is.na(df$education)),
+    sum(is.na(df$income)),
+    sum(is.na(df$age_group)),
+    sum(is.na(df$sex)),
+    sum(is.na(df$cancer_history)),
+    sum(is.na(df$insurance))
+  )
+) |>
+  mutate(`% Missing` = round(`N Missing` / nrow(df) * 100, 1)) |>
+  gt() |>
+  tab_header(title = "Missing data summary for analysis variables") |>
+  tab_style(
+    style = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style = cell_fill(color = "#FCEBEB"),
+    locations = cells_body(rows = `% Missing` > 10)
+  )
+```
+
+
