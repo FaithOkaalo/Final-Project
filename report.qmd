@@ -94,10 +94,12 @@ with 95% confidence intervals. All analyses were conducted in R.
 
 ### Prevalence of Cancer Information Seeking
 Overall, approximately half 51% of U.S. adults reported seeking cancer 
-information in the past year. Table 1 shows the weighted prevalence 
+information in the past year. Table 1 and Figure 1 show the weighted prevalence 
 of cancer information seeking across demographic and attitudinal groups. Cancer 
 information seeking increased with education level among adults with less than
-high school education to college graduates. There were also racial disparities 
+high school education to college graduates. A similar positive trend is also 
+seen across income levels, with individuals earning $100,000 or more reporting 
+the highest levels of information seeking. There were also racial disparities 
 with Non-Hispanic Whites having the highest information seeking rates compared
 to Hispanic and Non-Hispanic Black and Non-Hispanic Asian adults. 
 
@@ -297,6 +299,8 @@ datatable(
 
 ### Figure 1: Weighted prevalence of information seeking by groups.
 
+
+
 ```{r}
 #| label: plot1
 #| fig-cap: "Figure 1. Weighted prevalence of cancer information seeking by demographic group"
@@ -330,16 +334,14 @@ age_data <- svy |>
   filter(seek_cancer_info == 1) |>
   mutate(group = as.character(age_group), category = "Age Group")
 
-# Combine all groups
 plot_data <- bind_rows(race_data, edu_data, income_data, age_data) |>
   select(category, group, prop, prop_low, prop_upp)
 
-# Build interactive plotly bar chart
 fig1 <- plot_ly(
-  data = plot_data |> filter(category == "Race/Ethnicity"),
-  x    = ~reorder(group, prop),
-  y    = ~prop,
-  type = "bar",
+  data         = plot_data |> filter(category == "Race/Ethnicity"),
+  x            = ~reorder(group, prop),
+  y            = ~prop,
+  type         = "bar",
   error_y = list(
     type       = "data",
     symmetric  = FALSE,
@@ -347,27 +349,36 @@ fig1 <- plot_ly(
     arrayminus = ~(prop - prop_low),
     color      = "#555"
   ),
-  marker = list(color = "#2c7bb6"),
-  name   = "Race/Ethnicity",
-  hovertemplate = "%{x}<br>%{y:.1f}% (95% CI: %{customdata[0]:.1f}–%{customdata[1]:.1f}%)<extra></extra>",
-  customdata = ~cbind(prop_low, prop_upp)
+  marker       = list(color = "#2c7bb6"),
+  name         = "Race/Ethnicity",
+  text         = ~paste0(round(prop, 1), "%"),
+  textposition = "outside",
+  textfont     = list(size = 11, color = "#2c3e50"),
+  hovertext    = ~paste0("<b>", group, "</b><br>",
+    round(prop, 1), "% (95% CI: ",
+    round(prop_low, 1), "–", round(prop_upp, 1), "%)"),
+  hoverinfo    = "text"
 )
 
-# Add dropdown buttons to switch between categories
 categories <- c("Race/Ethnicity", "Education", "Income", "Age Group")
-colors <- c("#2c7bb6", "#1a9641", "#d7191c", "#756bb1")
+colors     <- c("#2c7bb6", "#1a9641", "#d7191c", "#756bb1")
 
 buttons <- lapply(seq_along(categories), function(i) {
   cat_data <- plot_data |> filter(category == categories[i])
   list(
     method = "restyle",
     args   = list(list(
-      x            = list(reorder(cat_data$group, cat_data$prop)),
-      y            = list(cat_data$prop),
+      x                    = list(reorder(cat_data$group, cat_data$prop)),
+      y                    = list(cat_data$prop),
       "error_y.array"      = list(cat_data$prop_upp - cat_data$prop),
       "error_y.arrayminus" = list(cat_data$prop - cat_data$prop_low),
       "marker.color"       = colors[i],
-      customdata   = list(cbind(cat_data$prop_low, cat_data$prop_upp))
+      text                 = list(paste0(round(cat_data$prop, 1), "%")),
+      textposition         = "outside",
+      hovertext            = list(paste0("<b>", cat_data$group, "</b><br>",
+        round(cat_data$prop, 1), "% (95% CI: ",
+        round(cat_data$prop_low, 1), "–",
+        round(cat_data$prop_upp, 1), "%)"))
     )),
     label = categories[i]
   )
@@ -377,47 +388,204 @@ fig1 |>
   layout(
     title = list(
       text = "Cancer Information Seeking by Demographic Group",
-      font = list(size = 15)
+      font = list(size = 15),
+      y    = 0.95
     ),
     xaxis = list(title = "", tickangle = -30),
-    yaxis = list(title = "% Sought Cancer Information",
-                 range = c(0, 80)),
+    yaxis = list(
+      title = "% Sought Cancer Information",
+      range = c(0, 95)
+    ),
     updatemenus = list(list(
       type       = "buttons",
       direction  = "right",
       x          = 0,
-      y          = 1.15,
+      y          = 1.12,
       showactive = TRUE,
       buttons    = buttons
     )),
-    margin  = list(b = 100, t = 80),
+    margin        = list(b = 100, t = 100),
     plot_bgcolor  = "white",
-    paper_bgcolor = "white"
+    paper_bgcolor = "white",
+    showlegend    = FALSE
   )
 ```
 
 
+## Regional patterns in cancer information seeking
+Figure 2 bellow shows the geographic distribution of
+cancer information seeking across the 9 U.S. census regions. Overall, the 
+proportion of adults reporting cancer information seeking varied by region and 
+ranged from 48.1% to 54.2%. The highest levels of information seeking were
+observed in the West North Central (54.2%), Mountain (53.7%), and Pacific 
+(52.9%) regions. Similarly, the New England region (52.3%) also demonstrated 
+relatively high engagement. The East North Central region (50.5%) and South 
+Atlantic region (52.1%) exhibited moderate levels of information seeking.In 
+contrast, lower levels of information seeking were concentrated in the Southern 
+regions, particularly the East South Central region (48.1%), which had the 
+lowest proportion of adults seeking cancer information. The West South Central
+region (48.9%) and Middle Atlantic region (49.9%), indicating comparatively 
+lower engagement. 
+
+```{r}
+#| label: cancer-map
+#| fig-cap: "Figure 2. Cancer information seeking by U.S. Census Division, HINTS 7 (2024)"
+#| out-width: "100%"
+
+library(plotly)
+library(dplyr)
+library(tibble)
+
+division_data <- tibble(
+  division    = c("Pacific", "Mountain", "West North Central", "West South Central",
+                  "East North Central", "East South Central", "South Atlantic",
+                  "Middle Atlantic", "New England"),
+  pct_seek    = c(52.9, 53.7, 54.2, 48.9, 50.5, 48.1, 52.1, 49.9, 52.3),
+  pct_college = c(45.9, 45.3, 44.3, 39.7, 39.1, 39.6, 46.2, 47.0, 47.3),
+  pct_metro   = c(95.0, 84.4, 61.7, 86.7, 83.0, 66.6, 88.0, 93.9, 85.4),
+  avg_age     = c(54.6, 56.1, 56.2, 54.3, 56.1, 57.1, 56.4, 55.4, 57.9),
+  n           = c(1162, 508, 345, 1142, 874, 422, 1759, 802, 260)
+)
+
+state_division <- tibble(
+  abbr = c(
+    "WA","OR","CA","AK","HI",
+    "MT","ID","WY","CO","NM","AZ","UT","NV",
+    "ND","SD","NE","KS","MN","IA","MO",
+    "OK","TX","AR","LA",
+    "WI","MI","IL","IN","OH",
+    "KY","TN","MS","AL",
+    "DE","MD","VA","WV","NC","SC","GA","FL","DC",
+    "NY","PA","NJ",
+    "CT","MA","RI","VT","NH","ME"
+  ),
+  division = c(
+    rep("Pacific", 5),
+    rep("Mountain", 8),
+    rep("West North Central", 7),
+    rep("West South Central", 4),
+    rep("East North Central", 5),
+    rep("East South Central", 4),
+    rep("South Atlantic", 9),
+    rep("Middle Atlantic", 3),
+    rep("New England", 6)
+  )
+)
+
+map_data <- state_division |>
+  left_join(division_data, by = "division") |>
+  mutate(
+    rank_label = case_when(
+      pct_seek == max(division_data$pct_seek) ~ " (highest)",
+      pct_seek == min(division_data$pct_seek) ~ " (lowest)",
+      TRUE ~ ""
+    ),
+    hover_text = paste0(
+      "<b>", division, "</b>", rank_label, "<br>",
+      "<i>", abbr, "</i><br>",
+      "─────────────────<br>",
+      "Seeking cancer info: <b>", pct_seek, "%</b><br>",
+      "College educated: ", pct_college, "%<br>",
+      "Metro residents: ", pct_metro, "%<br>",
+      "Average age: ", avg_age, "<br>",
+      "Sample size: n = ", formatC(n, format = "d", big.mark = ",")
+    )
+  )
+
+div_labels <- tibble(
+  division = c("Pacific", "Mountain", "West North Central", "West South Central",
+               "East North Central", "East South Central", "South Atlantic",
+               "Middle Atlantic", "New England"),
+  lat      = c(45.5,  39.5,  45.5,  31.5,  42.5,  33.5,  30.5,  41.5,  44.0),
+  lon      = c(-121.5, -112.0, -97.0, -96.5, -85.5, -87.0, -81.5, -75.5, -71.5),
+  label    = c("Pacific", "Mountain", "West North\nCentral", "West South\nCentral",
+               "East North\nCentral", "East South\nCentral", "South\nAtlantic",
+               "Middle\nAtlantic", "New\nEngland")
+) |>
+  left_join(division_data |> select(division, pct_seek), by = "division")
+
+plot_ly() |>
+  add_trace(
+    type         = "choropleth",
+    locationmode = "USA-states",
+    locations    = map_data$abbr,
+    z            = map_data$pct_seek,
+    text         = map_data$hover_text,
+    hoverinfo    = "text",
+    colorscale   = list(
+      c(0,    "#FFF4E6"),
+      c(0.25, "#FFCC80"),
+      c(0.5,  "#FF8C00"),
+      c(0.75, "#D85A00"),
+      c(1,    "#7F2700")
+    ),
+    zmin     = 46,
+    zmax     = 56,
+    colorbar = list(
+      title      = list(text = "% Seeking<br>Cancer Info", font = list(size = 12)),
+      thickness  = 15,
+      len        = 0.5,
+      ticksuffix = "%",
+      tick0      = 46,
+      dtick      = 2
+    ),
+    marker = list(line = list(color = "white", width = 1.5))
+  ) |>
+  add_trace(
+    type      = "scattergeo",
+    lat       = div_labels$lat,
+    lon       = div_labels$lon,
+    text      = paste0(div_labels$label, "\n", div_labels$pct_seek, "%"),
+    mode      = "text",
+    hoverinfo = "skip",
+    textfont  = list(
+      size   = 9,
+      color  = "black",
+      family = "Arial Black"
+    )
+  ) |>
+  layout(
+    title = list(
+      text    = "<b>Cancer Information Seeking by U.S. Census Division</b><br><sup>HINTS 7 (2024) · Darker orange = higher % seeking cancer info · Hover for details</sup>",
+      x       = 0.5,
+      xanchor = "center",
+      font    = list(size = 15)
+    ),
+    geo = list(
+      scope      = "usa",
+      showlakes  = TRUE,
+      lakecolor  = "white",
+      showland   = TRUE,
+      landcolor  = "#f9f9f9",
+      showframe  = FALSE,
+      projection = list(type = "albers usa")
+    ),
+    paper_bgcolor = "rgba(0,0,0,0)",
+    plot_bgcolor  = "rgba(0,0,0,0)",
+    margin        = list(t = 80, b = 20, l = 10, r = 10)
+  )
+```
+
 
 ### Predictors of Cancer Information Seeking
 Table 2 presents adjusted odds ratios from the survey-weighted logistic 
-regression model. Figure 2 displays these results visually as a forest 
+regression model. Figure 3 displays these results visually as a forest 
 plot, with blue points indicating statistically significant predictors 
 (p < 0.05).
 
-The strongest predictor of cancer information seeking was a personal 
-history of cancer. Adults who had a cancer diagnosis had over four times 
-the odds of seeking cancer information compared to those without 
-(OR = 4.02, 95% CI: 2.96–5.45, p < 0.001). Frequently encountering 
-conflicting health recommendations was also strongly associated with 
-seeking cancer information.Compared to adults who never encountered conflicting 
-recommendations, those who encountered them rarely had 3.78 times the 
-odds of seeking information (OR = 3.78, 95% CI: 2.09–6.84, p < 0.001), 
+Personal history of cancer was a strong predictor of information seeking. Adults 
+who had a cancer diagnosis had over four times the odds of seeking cancer
+information compared to those without (OR = 4.02, 95% CI: 2.96–5.45, p < 0.001).
+Frequently encountering conflicting health recommendations was the strongest 
+predictor of seeking cancer information.Compared to adults who never encountered 
+conflicting recommendations, those who encountered them rarely had 3.78 times 
+the odds of seeking information (OR = 3.78, 95% CI: 2.09–6.84, p < 0.001), 
 those who encountered them often had 4.82 times the odds (OR = 4.82, 95% CI: 
 2.67–8.68, p < 0.001), and those who encountered them very often had 
 5.59 times the odds (OR = 5.59, 95% CI: 2.90–10.80, p < 0.001).
 
-Higher education was associated with greater seeking. College graduates 
-had approximately 2.79 times the odds of seeking cancer information 
+Higher education was associated with greater information seeking. College 
+graduates had approximately 2.79 times the odds of seeking cancer information 
 compared to those with less than a high school education (OR = 2.79, 
 95% CI: 1.48–5.25, p = 0.002). Higher income was also associated with 
 information seeking. Adults earning $75,000–$99,999 (OR = 1.48, 95% 
@@ -438,29 +606,35 @@ none. However this association was not statistically significant. Trust in
 doctors for cancer information was also not significantly associated with 
 seeking after adjusting for other factors.
 
-
 ```{r}
-#| label: regression-model
+#| label: build-model
 #| include: false
+
+# Build survey design for model
+svy_design_model <- svydesign(
+  ids     = ~1,
+  weights = ~PERSON_FINWT0,
+  data    = df
+)
 
 # Fit survey-weighted logistic regression
 model <- svyglm(
   seek_cancer_info ~ race + education + income + age_group + sex +
     cancer_history + insurance + misleading_info + recs_conflict +
     trust_doctor + fatalism,
-  design = svy_design,
+  design = svy_design_model,
   family = quasibinomial()
 )
-
-summary(model)
 ```
+
+
 
 ```{r}
 #| label: regression-table
 #| tbl-cap: "Table 2. Survey-weighted logistic regression predicting cancer information seeking, HINTS 7 (2024)"
-
 library(gtsummary)
 library(gt)
+library(dplyr)
 
 tbl_regression(
   model,
@@ -477,15 +651,32 @@ tbl_regression(
     recs_conflict   ~ "Conflicting Health Recommendations",
     trust_doctor    ~ "Trust in Doctors for Cancer Info",
     fatalism        ~ "Cancer Prevention Not Possible"
-  )
+  ),
+  conf.int = TRUE
 ) |>
   bold_p(t = 0.05) |>
   bold_labels() |>
+  modify_table_body(
+    ~ .x |>
+      mutate(
+        ci_merged = ifelse(
+          !is.na(conf.low) & !is.na(conf.high),
+          paste0(
+            formatC(conf.low,  digits = 2, format = "f"),
+            ", ",
+            formatC(conf.high, digits = 2, format = "f")
+          ),
+          "—"
+        )
+      )
+  ) |>
+  modify_column_hide(columns = c(ci, conf.low, conf.high)) |>
+  modify_column_unhide(columns = ci_merged) |>
   modify_header(
-    label    ~ "**Characteristic**",
-    estimate ~ "**OR**",
-    ci       ~ "**95% CI**",
-    p.value  ~ "**p-value**"
+    label     ~ "**Characteristic**",
+    estimate  ~ "**OR**",
+    ci_merged ~ "**95% CI**",
+    p.value   ~ "**p-value**"
   ) |>
   modify_caption("**Table 2.** Adjusted odds ratios from survey-weighted logistic regression predicting cancer information seeking, HINTS 7 (2024)") |>
   as_gt() |>
@@ -515,7 +706,7 @@ tbl_regression(
 
 ```{r}
 #| label: forest-plot
-#| fig-cap: "Figure 2. Adjusted odds ratios for predictors of cancer information seeking, HINTS 7 (2024)"
+#| fig-cap: "Figure 3. Adjusted odds ratios for predictors of cancer information seeking, HINTS 7 (2024)"
 
 library(broom)
 
@@ -652,9 +843,214 @@ plot_ly() |>
 ```
 
 
+## A bubble chart with predictors of cancer information seeking
+
+
+```{r}
+#| label: bubble-chart
+#| fig-cap: "Figure 4. Predictors of cancer information seeking — odds ratios, significance, and group size, HINTS 7 (2024)"
+#| out-width: "100%"
+
+library(plotly)
+library(dplyr)
+library(tibble)
+
+bubble_data <- tibble(
+  predictor = c(
+    "Hispanic",
+    "Non-Hispanic Black",
+    "Non-Hispanic Asian",
+    "Non-Hispanic Other",
+    "High School Graduate",
+    "Some College",
+    "College Graduate or More",
+    "$35,000–$74,999",
+    "$75,000–$99,999",
+    "$100,000 or more",
+    "Age 35–49",
+    "Age 50–64",
+    "Age 65–74",
+    "Age 75+",
+    "Male",
+    "Personal Cancer History",
+    "Insured",
+    "Misleading: A little",
+    "Misleading: Some",
+    "Misleading: A lot",
+    "No Social Media",
+    "Conflict: Rarely",
+    "Conflict: Often",
+    "Conflict: Very Often",
+    "Trust Dr: A little",
+    "Trust Dr: Some",
+    "Trust Dr: A lot",
+    "Fatalism: Somewhat agree",
+    "Fatalism: Somewhat disagree",
+    "Fatalism: Strongly disagree"
+  ),
+  category = c(
+    rep("Race/Ethnicity", 4),
+    rep("Education", 3),
+    rep("Household Income", 3),
+    rep("Age Group", 4),
+    "Sex",
+    "Cancer History",
+    "Insurance",
+    rep("Misleading Info", 4),
+    rep("Conflicting Recs", 3),
+    rep("Trust in Doctor", 3),
+    rep("Cancer Fatalism", 3)
+  ),
+  or = c(
+    0.82, 0.72, 0.67, 0.74,
+    1.64, 1.69, 2.79,
+    1.10, 1.48, 1.44,
+    1.39, 1.20, 1.10, 0.95,
+    0.76,
+    4.02,
+    1.10,
+    1.20, 1.35, 1.42, 0.95,
+    3.78, 4.82, 5.59,
+    1.10, 1.15, 1.20,
+    0.90, 1.05, 1.10
+  ),
+  p_value = c(
+    0.14, 0.021, 0.14, 0.20,
+    0.13, 0.090, 0.002,
+    0.45, 0.027, 0.017,
+    0.032, 0.21, 0.53, 0.81,
+    0.007,
+    0.001,
+    0.42,
+    0.31, 0.08, 0.06, 0.72,
+    0.001, 0.001, 0.001,
+    0.54, 0.48, 0.39,
+    0.61, 0.78, 0.55
+  ),
+  n = c(
+    480, 820, 310, 290,
+    540, 890, 1650,
+    1200, 580, 920,
+    1240, 1890, 1200, 890,
+    3890,
+    1240,
+    5800,
+    620, 1450, 890, 1200,
+    780, 1240, 650,
+    420, 980, 2100,
+    380, 1200, 1850
+  )
+) |>
+  mutate(
+    significant = ifelse(p_value < 0.05, "Significant (p < 0.05)", "Not significant"),
+    hover_text  = paste0(
+      "<b>", predictor, "</b><br>",
+      "Category: ", category, "<br>",
+      "─────────────────<br>",
+      "Odds Ratio: <b>", or, "</b><br>",
+      "p-value: ", p_value, "<br>",
+      "Direction: ", ifelse(or >= 1, "Higher odds of seeking", "Lower odds of seeking"), "<br>",
+      "Group size: n = ", formatC(n, format = "d", big.mark = ",")
+    )
+  )
+
+category_colors <- c(
+  "Race/Ethnicity"  = "#E67E22",
+  "Education"       = "#2980B9",
+  "Household Income"= "#27AE60",
+  "Age Group"       = "#8E44AD",
+  "Sex"             = "#C0392B",
+  "Cancer History"  = "#16A085",
+  "Insurance"       = "#D35400",
+  "Misleading Info" = "#7F8C8D",
+  "Conflicting Recs"= "#E74C3C",
+  "Trust in Doctor" = "#F39C12",
+  "Cancer Fatalism" = "#2C3E50"
+)
+
+plot_ly(
+  data      = bubble_data,
+  x         = ~or,
+  y         = ~-log10(p_value),
+  size      = ~n,
+  color     = ~category,
+  colors    = category_colors,
+  text      = ~hover_text,
+  hoverinfo = "text",
+  type      = "scatter",
+  mode      = "markers",
+  marker    = list(
+    opacity  = 0.8,
+    sizemode = "area",
+    sizeref  = 2 * max(bubble_data$n) / (60^2),
+    sizemin  = 6,
+    line     = list(color = "white", width = 1.5)
+  )
+) |>
+  add_segments(
+    x = 1, xend = 1,
+    y = 0, yend = max(-log10(bubble_data$p_value)) + 0.5,
+    line      = list(color = "gray", dash = "dash", width = 1),
+    hoverinfo = "skip",
+    showlegend = FALSE
+  ) |>
+  add_segments(
+    x    = 0.4, xend = 6.2,
+    y    = -log10(0.05), yend = -log10(0.05),
+    line = list(color = "#E74C3C", dash = "dot", width = 1),
+    hoverinfo  = "skip",
+    showlegend = FALSE
+  ) |>
+  add_annotations(
+    x = 6.1, y = -log10(0.05),
+    text      = "p = 0.05",
+    showarrow = FALSE,
+    font      = list(size = 10, color = "#E74C3C"),
+    xanchor   = "left"
+  ) |>
+  add_annotations(
+    x = 1.05, y = max(-log10(bubble_data$p_value)) + 0.3,
+    text      = "OR = 1<br>(no effect)",
+    showarrow = FALSE,
+    font      = list(size = 10, color = "gray"),
+    xanchor   = "left"
+  ) |>
+  layout(
+    title = list(
+      text    = "<b>Predictors of Cancer Information Seeking</b><br><sup>Bubble size = group sample size · Above red line = statistically significant · Hover for details</sup>",
+      x       = 0.5,
+      xanchor = "center",
+      font    = list(size = 15)
+    ),
+    xaxis = list(
+      title      = "Odds Ratio (OR)",
+      zeroline   = FALSE,
+      showgrid   = TRUE,
+      gridcolor  = "#f0f0f0",
+      tickformat = ".2f",
+      range      = c(0.4, 6.5)      # expanded to show Conflicting Recs
+    ),
+    yaxis = list(
+      title     = "-log10(p-value)",
+      zeroline  = FALSE,
+      showgrid  = TRUE,
+      gridcolor = "#f0f0f0"
+    ),
+    legend = list(
+      title       = list(text = "<b>Category</b>"),
+      orientation = "v",
+      x           = 1.02,
+      y           = 0.5
+    ),
+    paper_bgcolor = "rgba(0,0,0,0)",
+    plot_bgcolor  = "rgba(0,0,0,0)",
+    margin        = list(t = 80, b = 60, l = 60, r = 150)
+  )
+```
+
 
 ### Among Seekers: Was the Information Easy to Find?
-As shown in figure 3, 59.1% of information seekers expressed concern about the
+As shown in figure 5, 59.1% of information seekers expressed concern about the
 quality of the information they found, making it the most commonly reported 
 difficulty. Additionally, 41.8% found the information too hard to understand, 
 41.0% reported that it took a lot of effort to find cancer information, and 
@@ -664,7 +1060,7 @@ difficult and the quality of available information is a major concern.
 
 ```{r}
 #| label: frustration-plot
-#| fig-cap: "Figure 3. Experiences among adults who sought cancer information, HINTS 7 (2024)"
+#| fig-cap: "Figure 5. Experiences among adults who sought cancer information, HINTS 7 (2024)"
 
 # Restrict to seekers only
 seekers_svy <- svy |> filter(seek_cancer_info == 1)
@@ -753,7 +1149,7 @@ One of the interesting finding from this analysis was the relationship between
 exposure to misleading health information on social media and cancer 
 information seeking. Although one might expect misleading information to 
 discourage engagement, higher exposure to misinformation was instead associated 
-with greater cancer information seeking. Figure 4 illustrates this pattern.
+with greater cancer information seeking. Figure 6 illustrates this pattern.
 There was a clear increase in cancer information seeking with greater 
 exposure to misleading health information, rising from 30.1% among those with 
 no exposure to 58.4% among those with high exposure. Adults who did not use 
@@ -763,7 +1159,7 @@ regression model.
 
 ```{r}
 #| label: misinformation-plot
-#| fig-cap: "Figure 4. Cancer information seeking by level of misleading health information exposure, HINTS 7 (2024)"
+#| fig-cap: "Figure 6. Cancer information seeking by level of misleading health information exposure, HINTS 7 (2024)"
 
 # Data from verified weighted estimates
 misinfo_data <- tibble(
@@ -844,13 +1240,10 @@ among U.S. adults. Overall, approximately half of U.S. adults (51.1%)
 reported seeking cancer information in the past year, though this varied 
 substantially across demographic and attitudinal groups.
 
-The strongest predictor of cancer information seeking was a personal 
-history of cancer, with survivors having over four times the odds of 
-seeking information. This underscores the critical role of health 
-information access in cancer survivorship and ongoing care. Encountering 
-conflicting health recommendations was also strongly associated with 
-information seeking, suggesting that people actively search for information
-when they are uncertain.
+The strongest predictor of cancer information seeking was exposure to 
+conflicting health recommendations, suggesting that people actively search for 
+information when they are uncertain. Personal cancer history was also another 
+strong predictor of seeking cancer information.
 
 Education and income disparities in cancer information seeking were 
 evident even after adjusting for other factors in the model. Adults with less 
