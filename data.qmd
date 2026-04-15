@@ -24,7 +24,8 @@ library(gt)
 
 ## Data Source
 
-The data used in this analysis was obtained from the Health Information National Trends Survey, Cycle 7 (HINTS 7), which was administered by the National Cancer
+The data used in this analysis was obtained from the Health Information National 
+Trends Survey, Cycle 7 (HINTS 7), which was administered by the National Cancer
 Institute (NCI). HINTS is a nationally representative, cross-sectional survey of 
 U.S. adults aged 18 and older. The survey was conducted between March and 
 September 2024 using a mail and web-based design.This is a publicly available 
