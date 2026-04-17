@@ -93,15 +93,16 @@ with 95% confidence intervals. All analyses were conducted in R.
 ## Results
 
 ### Prevalence of Cancer Information Seeking
-Overall, approximately half 51% of U.S. adults reported seeking cancer 
-information in the past year. Table 1 and Figure 1 show the weighted prevalence 
-of cancer information seeking across demographic and attitudinal groups. Cancer 
-information seeking increased with education level among adults with less than
-high school education to college graduates. A similar positive trend is also 
-seen across income levels, with individuals earning $100,000 or more reporting 
-the highest levels of information seeking. There were also racial disparities 
+Overall, approximately half (51.1%) of U.S. adults reported seeking cancer 
+information. Figure 1 show the weighted prevalence of cancer information seeking 
+within each demographic group. Cancer information seeking increased with 
+education level among adults with less than high school education to college 
+graduates. A similar trend was observed with income groups. Compared to the other 
+income categories individuals who reported earning $100,000 or more had the 
+highest levels of information seeking. There were also racial disparities 
 with Non-Hispanic Whites having the highest information seeking rates compared
 to Hispanic and Non-Hispanic Black and Non-Hispanic Asian adults. 
+
 
 ```{r}
 #| label: setup-report
@@ -258,8 +259,8 @@ datatable(
   caption  = htmltools::tags$caption(
     style = "caption-side: top; text-align: left; font-size: 14px;
              font-weight: bold; color: #2c3e50; padding-bottom: 8px;",
-    "Table 1. Weighted prevalence of cancer information seeking by 
-     demographic and attitudinal characteristics, HINTS 7 (2024)"
+    "Table 1. Distribution of demographic and attitudinal characteristics by 
+    cancer information seeking status, HINTS 7 (2024)"
   ),
   rownames = FALSE,
   filter   = "top",
@@ -708,6 +709,7 @@ tbl_regression(
 #| label: forest-plot
 #| fig-cap: "Figure 3. Adjusted odds ratios for predictors of cancer information seeking, HINTS 7 (2024)"
 
+recode <- dplyr::recode
 library(broom)
 
 # Extract model results
