@@ -20,6 +20,7 @@ library(survey)
 library(srvyr)
 library(here)
 library(gt)
+library (car)
 ```
 
 ## Data Source
@@ -325,7 +326,7 @@ weights (PERSON_FINWT1–PERSON_FINWT50), with a degrees of freedom of 49.
 Overall, the amount of missing values for our key variables was low. The outcome
 variable (`seek_cancer_info`) had less than 1% missing data. The race/ethnicity 
 variable had the highest proportion of missing values at 11.5% (n = 840), 
-which may affect the estimates for racial subgroups.All the other variables had 
+which may affect the estimates for racial subgroups. All the other variables had 
 less than 10% missing values. The missing values were excluded from analyses on 
 a variable-by-variable basis.
 
@@ -364,4 +365,273 @@ tibble(
   )
 ```
 
+
+
+
+# Eploratory Data Analysis
+## Distribution of Key Variables
+Before running the regression model, we examined the distribution of 
+all the key variables to check for sample sizes, whether the outcome was
+balanced and potential issues with rare categories.
+
+### Outcome variable
+```{r}
+
+#| label: outcome-distributiion
+
+svy |>
+  filter(!is.na(seek_cancer_info)) |>
+  group_by(seek_cancer_info) |>
+  summarise(
+    n    = unweighted(n()),
+    prop = survey_prop(vartype = "ci") * 100
+  ) |>
+  mutate(
+    label    = ifelse(seek_cancer_info == 1, "Sought Info", "Did Not Seek"),
+    prop     = round(prop, 1),
+    prop_low = round(prop_low, 1),
+    prop_upp = round(prop_upp, 1)
+  ) |>
+  select(label, n, prop, prop_low, prop_upp) |>
+  gt() |>
+  tab_header(title = "Weighted prevalence of cancer information seeking") |>
+  cols_label(
+    label    ~ "Category",
+    n        ~ "Unweighted n",
+    prop     ~ "Weighted %",
+    prop_low ~ "95% CI Lower",
+    prop_upp ~ "95% CI Upper"
+  ) |>
+  tab_style(
+    style     = cell_text(weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style     = cell_fill(color = "#2c7bb6"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style     = cell_text(color = "white", weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_options(table.font.size = 13)
+```
+
+The outcome variable was well balanced. 51.1% of the participants sought cancer
+information and 48.9% did not. 
+
+### Categorical Predictors — Cell Size Check
+All the key predictor variables had adequate cell sizes. All the cells had more 
+that 10 observations.
+
+```{r}
+#| label: cell-sizes
+
+library(gt)
+
+check_cells <- function(var, label) {
+  df |>
+    filter(!is.na(!!sym(var)), !is.na(seek_cancer_info)) |>
+    count(!!sym(var), seek_cancer_info) |>
+    group_by(!!sym(var)) |>
+    mutate(total = sum(n)) |>
+    ungroup() |>
+    filter(seek_cancer_info == 1) |>
+    select(category = !!sym(var), seekers = n, total) |>
+    mutate(
+      variable    = label,
+      pct_seekers = round(100 * seekers / total, 1)
+    ) |>
+    select(variable, category, total, seekers, pct_seekers)
+}
+
+bind_rows(
+  check_cells("race",           "Race/Ethnicity"),
+  check_cells("education",      "Education"),
+  check_cells("income",         "Income"),
+  check_cells("age_group",      "Age Group"),
+  check_cells("sex",            "Sex"),
+  check_cells("cancer_history", "Cancer History"),
+  check_cells("insurance",      "Insurance"),
+  check_cells("misleading_info","Misleading Info"),
+  check_cells("recs_conflict",  "Conflicting Recs"),
+  check_cells("trust_doctor",   "Trust in Doctors"),
+  check_cells("fatalism",       "Cancer Fatalism")
+) |>
+  gt() |>
+  tab_header(
+    title    = "Cell size check for categorical predictors",
+    subtitle = "Minimum recommended cell size: 10 events (seekers)"
+  ) |>
+  cols_label(
+    variable    ~ "Variable",
+    category    ~ "Category",
+    total       ~ "Total n",
+    seekers     ~ "Seekers (n)",
+    pct_seekers ~ "% Seekers"
+  ) |>
+  tab_style(
+    style     = cell_fill(color = "#FCEBEB"),
+    locations = cells_body(rows = seekers < 10)
+  ) |>
+  tab_style(
+    style     = cell_fill(color = "#2c7bb6"),
+    locations = cells_column_labels()
+  ) |>
+  tab_style(
+    style     = cell_text(color = "white", weight = "bold"),
+    locations = cells_column_labels()
+  ) |>
+  tab_options(table.font.size = 12)
+```
+
+
+
+### Exploratory Plots
+The exploratory plots bellow show the distribution of the key categorical
+predictors that were included in the survey-weighted logistic regression model.
+Our sample was predominantly Non-Hispanic White and well-educated, with majority 
+of the respondents being college graduates or having more than college education. 
+A big proportion of the survey participants reported exposure to misleading 
+health information and conflicting health recommendations. Household income was 
+unevenly distributed across the categories, with majority being on the lower end
+reporting less than $ 30,000. Most respondents were insured, and the sample 
+was dominated by middle-aged and older adults. These plots show that there was
+some diversity across the sociodemographic characteristics. However, the 
+regression output should be interpreted with caution because some groups were 
+over represented for instance Non-Hispanic, highly educated and insured 
+respondents. 
+
+```{r}
+#| label: eda-plots
+#| fig-cap: "Distribution of key predictor variables"
+
+p1 <- df |>
+  filter(!is.na(race)) |>
+  count(race) |>
+  ggplot(aes(y = fct_reorder(race, n), x = n)) +
+  geom_col(fill = "#2c7bb6") +
+  labs(x = "Count", y = NULL, title = "Race/Ethnicity") +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.y = element_text(size = 7))
+
+p2 <- df |>
+  filter(!is.na(education)) |>
+  count(education) |>
+  ggplot(aes(y = fct_reorder(education, n), x = n)) +
+  geom_col(fill = "#1a9641") +
+  labs(x = "Count", y = NULL, title = "Education") +
+  theme_minimal(base_size = 11)
+
+p3 <- df |>
+  filter(!is.na(misleading_info)) |>
+  count(misleading_info) |>
+  ggplot(aes(y = fct_reorder(misleading_info, n), x = n)) +
+  geom_col(fill = "#d7191c") +
+  labs(x = "Count", y = NULL, title = "Misleading Health Info Exposure") +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.y = element_text(size = 7))
+
+p4 <- df |>
+  filter(!is.na(recs_conflict)) |>
+  count(recs_conflict) |>
+  ggplot(aes(y = fct_reorder(recs_conflict, n), x = n)) +
+  geom_col(fill = "#756bb1") +
+  labs(x = "Count", y = NULL, title = "Conflicting Recommendations") +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.y = element_text(size = 7))
+
+p5 <- df |>
+  filter(!is.na(income)) |>
+  count(income) |>
+  ggplot(aes(y = fct_reorder(income, n), x = n)) +
+  geom_col(fill = "#BA7517") +
+  labs(x = "Count", y = NULL, title = "Household Income") +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.y = element_text(size = 7))
+
+p6 <- df |>
+  filter(!is.na(fatalism)) |>
+  count(fatalism) |>
+  ggplot(aes(y = fct_reorder(fatalism, n), x = n)) +
+  geom_col(fill = "#D85A30") +
+  labs(x = "Count", y = NULL, title = "Cancer Fatalism") +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.y = element_text(size = 7))
+
+p7 <- df |>
+  filter(!is.na(age_group)) |>
+  count(age_group) |>
+  ggplot(aes(y = fct_reorder(age_group, n), x = n)) +
+  geom_col(fill = "#2c7bb6") +
+  labs(x = "Count", y = NULL, title = "Age Group") +
+  theme_minimal(base_size = 11) +
+  theme(axis.text.y = element_text(size = 7))
+
+p8 <- df |>
+  filter(!is.na(insurance)) |>
+  count(insurance) |>
+  ggplot(aes(y = fct_reorder(insurance, n), x = n)) +
+  geom_col(fill = "#16A085") +
+  labs(x = "Count", y = NULL, title = "Health Insurance") +
+  theme_minimal(base_size = 11)
+
+
+
+gridExtra::grid.arrange(p1, p2, p3, p4, p5, p6, p7, p8, ncol = 2,
+                        heights = c(1.2, 1, 1, 1))
+```
+
+
+# Regression assumptions checks
+```{r}
+#| label: build-model
+#| include: false
+
+# Build survey design for model
+svy_design_model <- svydesign(
+  ids     = ~1,
+  weights = ~PERSON_FINWT0,
+  data    = df
+)
+
+# Fit survey-weighted logistic regression
+model <- svyglm(
+  seek_cancer_info ~ race + education + income + age_group + sex +
+    cancer_history + insurance + misleading_info + recs_conflict +
+    trust_doctor + fatalism,
+  design = svy_design_model,
+  family = quasibinomial()
+)
+```
+
+
+## Multicollinearity
+We used variance inflation factor (VIF) to assess multicollinearity. All 
+the VIF values were close to 1 (range 1.03–1.17) indicating no evidence of 
+multicollinearity among predictors.
+
+```{r}
+vif(model)
+```
+
+## Model fit check
+We used the McFadden's Pseudo R-squared to check the model fit. The model had a 
+pseudo R-squared value of 0.224 which indicates that it is a good model fit.
+The demographic and attitudinal predictors that were included in the model 
+helped to improve its overall fit compared to the null model in predicting 
+cancer information seeking behavior among U.S. adults.
+
+
+```{r}
+#| warning: false
+# Pseudo R-squared (McFadden)
+null_model <- svyglm(
+  seek_cancer_info ~ 1,
+  design = svy_design_model,
+  family = quasibinomial()
+)
+
+1 - (logLik(model) / logLik(null_model))
+```
 

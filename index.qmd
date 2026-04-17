@@ -75,15 +75,15 @@ conducted by the National Cancer Institute in 2024.
 
 The primary research question guiding this analysis was to examine what
 demographic and attitudinal factors predict cancer information seeking
-among U.S. adults, and whether exposure to misleading or conflicting
-health information is associated with seeking information.
+among U.S. adults. We also wanted to know whether exposure to misleading or 
+conflicting health information is associated with seeking cancer information.
 
 ## Key Findings
 
 - Overall, 51.1% of U.S. adults sought cancer information
 - Receiving conflicting health recommendations was the strongest predictor of
 cancer information seeking. Adults who frequently encountered conflicting health
-recommendations were over five times more likely to seek information
+recommendations were over five times more likely to seek cancer information
 - A striking misinformation paradox was observed. Those exposed to
 more misleading health information were more likely to seek cancer
 information
